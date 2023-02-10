@@ -1,27 +1,16 @@
 resource "aws_iam_openid_connect_provider" "openid_connect" {
+  count           = var.openid_connect_provider_arn != null ? 0 : 1
   url             = var.provider_url
   client_id_list  = var.client_id
   thumbprint_list = var.thumb_prints
 }
 
 data "aws_iam_policy_document" "openid_policy_document_assume_role" {
-  #   dynamic "statement" {
-  #     for_each = length(local.merged_principal_arns) > 0 ? [1] : []
-  #     content {
-  #       actions = ["sts:AssumeRole"]
-
-  #       principals {
-  #         type        = "AWS"
-  #         identifiers = local.merged_principal_arns
-  #       }
-  #     }
-  #   }
-
   statement {
     actions = ["sts:AssumeRoleWithWebIdentity"]
     principals {
       type        = "Federated"
-      identifiers = [var.openid_connect_provider_arn]
+      identifiers = [local.openid_provider_arn]
     }
 
     condition {
@@ -43,11 +32,10 @@ data "aws_iam_policy_document" "openid_policy_document_assume_role" {
 }
 
 resource "aws_iam_role" "main" {
-  count = var.repo != null ? 1 : 0
-
   name                 = local.role_name
   path                 = var.role_path
   permissions_boundary = var.role_permissions_boundary
-  assume_role_policy   = data.aws_iam_policy_document.openid_policy_document_assume_role[0].json
+  assume_role_policy   = data.aws_iam_policy_document.openid_policy_document_assume_role.json
   max_session_duration = var.role_max_session_duration
+  tags                 = var.tags
 }

@@ -19,11 +19,11 @@ variable "default_conditions" {
   type        = list(string)
   default     = ["allow_main", "deny_pull_request"]
   validation {
-    condition     = length(setintersection(var.default_conditions, ["allow_main", "allow_environment", "deny_pull_request", "allow_all", "allow_pull_request"])) != length(var.default_conditions)
+    condition     = length(setintersection(var.default_conditions, ["allow_main", "allow_environment", "deny_pull_request", "allow_all", "allow_pull_request"])) == length(var.default_conditions)
     error_message = "Valid configurations are: 'allow_main', 'allow_environment', 'allow_pull_request', 'allow_all' and 'deny_pull_request'."
   }
   validation {
-    condition     = length(var.default_conditions) == 0
+    condition     = length(var.default_conditions) > 0
     error_message = "At least one of the following configuration needs to be set: 'allow_main', 'allow_environment', 'allow_pull_request', 'allow_all' and 'deny_pull_request'."
   }
 }
@@ -38,6 +38,12 @@ variable "provider_url" {
   type        = string
   description = "The URL of the identity provider. Corresponds to the iss claim."
   default     = "https://token.actions.githubusercontent.com"
+}
+
+variable "openid_connect_provider_arn" {
+  description = "Set the openid connect provider ARN when the provider is not managed by the module."
+  type        = string
+  default     = null
 }
 
 variable "repo" {
@@ -59,6 +65,12 @@ variable "role_max_session_duration" {
   default     = null
 }
 
+variable "role_name" {
+  description = "(Optional) role name of the created role, if not provided the `namespace` will be used."
+  type        = string
+  default     = null
+}
+
 variable "role_path" {
   description = "(Optional) Path for the created role, requires `repo` is set."
   type        = string
@@ -71,6 +83,11 @@ variable "role_permissions_boundary" {
   default     = null
 }
 
+variable "tags" {
+  description = "Tags to attach onto resources"
+  type        = map(string)
+  default     = {}
+}
 variable "thumb_prints" {
   type        = list(string)
   description = "A list of server certificate thumbprints for the OpenID Connect (OIDC) identity provider's server certificate(s)"
