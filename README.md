@@ -57,7 +57,7 @@ The module can manage the following:
 |------|-------------|
 | <a name="output_conditions"></a> [conditions](#output\_conditions) | The assumed repository conditions added to the role. |
 | <a name="output_openid_connect_provider_arn"></a> [openid\_connect\_provider\_arn](#output\_openid\_connect\_provider\_arn) | AWS OpenID Connected identity provider arn. |
-| <a name="output_role"></a> [role](#output\_role) | The created role that can be assumed to configure the repository. |
+| <a name="output_assume_role"></a> [assume_role](#output\_assume_role) | The created role that can be assumed to configure the repository. |
 
 
 ## Usage
