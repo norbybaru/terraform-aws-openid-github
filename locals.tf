@@ -1,7 +1,7 @@
 locals {
   github_environments = (length(var.github_environments) > 0 && var.repo != null) ? [for e in var.github_environments : "repo:${var.repo}:environment:${e}"] : ["nothing"]
   github_sub          = "token.actions.githubusercontent.com:sub"
-  role_name           = (var.repo != null && var.role_name != null) ? var.role_name : "${replace(var.repo != null ? var.repo : "", "/", "-")}-gh-action"
+  role_name           = (var.repo != null && var.role_name != null) ? var.role_name : "${replace(var.repo != null ? var.repo : "", "/", "-")}-role"
   openid_provider_arn = var.openid_connect_provider_arn != null ? var.openid_connect_provider_arn : aws_iam_openid_connect_provider.openid_connect[0].arn
 
   default_allow_main = contains(var.default_conditions, "allow_main") ? [{
