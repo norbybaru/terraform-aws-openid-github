@@ -28,6 +28,12 @@ locals {
     values   = ["repo:${var.repo}:pull_request"]
   }] : []
 
+  default_allow_pull_request = contains(var.default_conditions, "allow_pull_request") && !contains(var.default_conditions, "deny_pull_request") ? [{
+    test     = "StringLike"
+    variable = local.github_sub
+    values   = ["repo:${var.repo}:pull_request"]
+  }] : []
+
   conditions = setunion(local.default_allow_main, local.default_allow_environment, local.default_allow_all, local.default_deny_pull_request, var.additional_conditions)
 
   merge_conditions = [
