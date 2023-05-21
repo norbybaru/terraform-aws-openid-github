@@ -34,7 +34,7 @@ locals {
     values   = ["repo:${var.repo}:pull_request"]
   }] : []
 
-  conditions = setunion(local.default_allow_main, local.default_allow_environment, local.default_allow_all, local.default_deny_pull_request, var.additional_conditions)
+  conditions = setunion(local.default_allow_main, local.default_allow_environment, local.default_allow_all, local.default_deny_pull_request, local.default_allow_pull_request, var.additional_conditions)
 
   merge_conditions = [
     for k, v in { for c in local.conditions : "${c.test}|${c.variable}" => c... } : # group by test & variable
