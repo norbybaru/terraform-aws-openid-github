@@ -12,6 +12,16 @@ The module can manage the following:
 - **allow_environment**: Allow GitHub Actions only for environments, by setting github_environments you can limit to a dedicated environment.
 - **deny_pull_request**: Denies assuming the role for a pull request.
 
+## OIDC Thumbprints
+
+**Important Security Notice:** AWS now automatically obtains and manages the certificate thumbprints for GitHub's OIDC provider. The `thumb_prints` parameter is deprecated and should be left empty (default: `[]`).
+
+- AWS ignores any manually specified thumbprints for GitHub OIDC (`token.actions.githubusercontent.com`)
+- Leaving thumbprints empty allows AWS to automatically manage certificate rotation
+- This is the recommended configuration for security and reliability
+
+For more details, see the [AWS documentation on OIDC providers](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_create_oidc_verify-thumbprint.html).
+
 ## Requirements
 
 | Name | Version |
