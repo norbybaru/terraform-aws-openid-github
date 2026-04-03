@@ -88,6 +88,9 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+# Note: As of July 2023, AWS now ignores the thumbprint for GitHub Actions OIDC provider.
+# The thumbprint is no longer validated by AWS, making this parameter optional.
+# See: https://github.blog/changelog/2023-06-27-github-actions-update-on-oidc-integration-with-aws/
 variable "thumb_prints" {
   type        = list(string)
   description = "A list of server certificate thumbprints for the OpenID Connect (OIDC) identity provider's server certificate(s)"
