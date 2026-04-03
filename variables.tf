@@ -91,5 +91,5 @@ variable "tags" {
 variable "thumb_prints" {
   type        = list(string)
   description = "A list of server certificate thumbprints for the OpenID Connect (OIDC) identity provider's server certificate(s)"
-  default     = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
+  default     = []
 }
