@@ -63,6 +63,14 @@ variable "role_max_session_duration" {
   description = "Maximum session duration (in seconds) that you want to set for the specified role."
   type        = number
   default     = null
+  validation {
+    condition     = var.role_max_session_duration == null || var.role_max_session_duration >= 3600
+    error_message = "Role max session duration must be at least 3600 seconds (1 hour) as per AWS IAM role limits."
+  }
+  validation {
+    condition     = var.role_max_session_duration == null || var.role_max_session_duration <= 43200
+    error_message = "Role max session duration must not exceed 43200 seconds (12 hours) as per AWS IAM role limits. For security best practices with short-lived GitHub Actions OIDC tokens, consider using shorter session durations."
+  }
 }
 
 variable "role_name" {
