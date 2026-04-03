@@ -31,7 +31,11 @@ variable "default_conditions" {
 variable "github_environments" {
   description = "(Optional) Allow GitHub action to deploy to all (default) or to one of the environments in the list."
   type        = list(string)
-  default     = ["*"]
+  default     = []
+  validation {
+    condition     = alltrue([for env in var.github_environments : !can(regex("^.*\\*.*$", env))])
+    error_message = "Wildcards are not allowed in environment names."
+  }
 }
 
 variable "provider_url" {
