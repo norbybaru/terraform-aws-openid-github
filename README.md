@@ -5,12 +5,41 @@ The module can manage the following:
 - The OpenID Connect identity provider for GitHub in your AWS account (via a submodule).
 - A role and assume role policy to check to check OIDC claims.
 
+## ⚠️ Security Notice: allow_all Deprecated
+
+The `allow_all` condition has been **deprecated and blocked** due to a critical security vulnerability (CVE-level severity).
+
+**Issue**: The previous implementation used the pattern `repo:<org>/<repo>:*` which matched ALL GitHub OIDC sub-claims, including pull requests from forked repositories. This allowed attackers to:
+1. Fork your public repository
+2. Trigger GitHub Actions workflows  
+3. Assume your AWS IAM role
+4. Access your AWS resources
+
+**Migration Required**: If you were using `allow_all`, you must update your configuration:
+
+```hcl
+# ❌ BLOCKED - Will cause validation error
+default_conditions = ["allow_all"]
+
+# ✅ Recommended - Main branch only (safest)
+default_conditions = ["allow_main", "deny_pull_request"]
+
+# ✅ Alternative - Main branch + PRs from main repo only
+default_conditions = ["allow_main", "allow_pull_request"]
+
+# ✅ Alternative - Environment-based deployments
+default_conditions = ["allow_environment"]
+github_environments = ["production", "staging"]
+```
+
 ## Manage roles for a repo
-- **allow_all**: Allow GitHub Actions for any claim for the repository. Be careful, this allows forks as well to assume the role!
+- **allow_all**: ⚠️ **DEPRECATED** - Blocked due to critical security vulnerability. Use specific conditions instead.
 - **allow_main** : Allow GitHub Actions only running on the main branch.
 - **allow_pull_request**: Allow assuming the role for a pull request.
 - **allow_environment**: Allow GitHub Actions only for environments, by setting github_environments you can limit to a dedicated environment.
 - **deny_pull_request**: Denies assuming the role for a pull request.
+
+**Security Best Practice**: Always use the principle of least privilege. Only grant access to specific branches, environments, or events that genuinely need AWS access.
 
 ## Requirements
 
@@ -39,7 +68,7 @@ The module can manage the following:
 |------|-------------|------|---------|:--------:|
 | <a name="input_additional_conditions"></a> [additional\_conditions](#input\_additional\_conditions) | (Optional) Additonal conditions for checking the OIDC claim. | <pre>list(object({<br>    test     = string<br>    variable = string<br>    values   = list(string)<br>  }))</pre> | `[]` | no |
 | <a name="input_client_id"></a> [client\_id](#input\_client\_id) | A list of client IDs (also known as audiences) | `list(string)` | <pre>[<br>  "sts.amazonaws.com"<br>]</pre> | no |
-| <a name="input_default_conditions"></a> [default\_conditions](#input\_default\_conditions) | (Optional) Default condtions to apply, at least one of the following is mandatory: 'allow\_main', 'allow\_environment', 'allow\_pull\_request', 'allow\_all' and 'deny\_pull\_request'. | `list(string)` | <pre>[<br>  "allow_main",<br>  "deny_pull_request"<br>]</pre> | no |
+| <a name="input_default_conditions"></a> [default\_conditions](#input\_default\_conditions) | (Optional) Default condtions to apply, at least one of the following is mandatory: 'allow\_main', 'allow\_environment', 'allow\_pull\_request', and 'deny\_pull\_request'. Note: 'allow\_all' is deprecated and blocked due to security concerns. | `list(string)` | <pre>[<br>  "allow_main",<br>  "deny_pull_request"<br>]</pre> | no |
 | <a name="input_github_environments"></a> [github\_environments](#input\_github\_environments) | (Optional) Allow GitHub action to deploy to all (default) or to one of the environments in the list. | `list(string)` | <pre>[<br>  "*"<br>]</pre> | no |
 | <a name="input_openid_connect_provider_arn"></a> [openid\_connect\_provider\_arn](#input\_openid\_connect\_provider\_arn) | Set the openid connect provider ARN when the provider is not managed by the module. | `string` | `null` | no |
 | <a name="input_provider_url"></a> [provider\_url](#input\_provider\_url) | The URL of the identity provider. Corresponds to the iss claim. | `string` | `"https://token.actions.githubusercontent.com"` | no |
