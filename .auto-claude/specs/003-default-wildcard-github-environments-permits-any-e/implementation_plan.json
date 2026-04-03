@@ -1,0 +1,184 @@
+{
+  "feature": "Remove wildcard default from github_environments to enforce environment-based access control",
+  "workflow_type": "simple",
+  "workflow_rationale": "Single Terraform module security fix with minimal file changes and no multi-service dependencies. This is a straightforward variable default change with validation.",
+  "phases": [
+    {
+      "id": "phase-1-security-fix",
+      "name": "Security Fix Implementation",
+      "type": "implementation",
+      "description": "Remove wildcard default from github_environments variable and add validation to prevent wildcards",
+      "depends_on": [],
+      "parallel_safe": true,
+      "subtasks": [
+        {
+          "id": "subtask-1-1",
+          "description": "Remove wildcard default from github_environments variable and add validation",
+          "service": "terraform-module",
+          "files_to_modify": [
+            "variables.tf"
+          ],
+          "files_to_create": [],
+          "patterns_from": [
+            "variables.tf (lines 56-59 show wildcard validation pattern for repo variable)"
+          ],
+          "verification": {
+            "type": "command",
+            "command": "terraform fmt -check && terraform validate",
+            "expected": "Success"
+          },
+          "status": "completed",
+          "implementation_notes": "Change github_environments default from ['*'] to [] (empty list). Add validation block to reject wildcards, similar to the repo variable validation pattern. This is a BREAKING CHANGE."
+        },
+        {
+          "id": "subtask-1-2",
+          "description": "Update README.md documentation to reflect breaking change",
+          "service": "terraform-module",
+          "files_to_modify": [
+            "README.md"
+          ],
+          "files_to_create": [],
+          "patterns_from": [
+            "README.md (existing inputs table format)"
+          ],
+          "verification": {
+            "type": "manual",
+            "instructions": "Review README.md to ensure: 1) github_environments default is updated from ['*'] to [], 2) Security rationale is explained in a BREAKING CHANGE section, 3) Migration guidance is provided for existing users"
+          },
+          "status": "completed",
+          "implementation_notes": "Add BREAKING CHANGE notice explaining that wildcard environments are no longer permitted. Update the inputs table to show new default value. Provide migration guidance."
+        }
+      ]
+    },
+    {
+      "id": "phase-2-verification",
+      "name": "Final Verification",
+      "type": "integration",
+      "description": "Verify Terraform formatting and validation pass, and documentation is complete",
+      "depends_on": [
+        "phase-1-security-fix"
+      ],
+      "parallel_safe": false,
+      "subtasks": [
+        {
+          "id": "subtask-2-1",
+          "description": "Run terraform fmt and validate on the entire module",
+          "service": "terraform-module",
+          "files_to_modify": [],
+          "files_to_create": [],
+          "patterns_from": [],
+          "verification": {
+            "type": "command",
+            "command": "terraform fmt -recursive && terraform validate",
+            "expected": "All files formatted correctly and validation passes"
+          },
+          "status": "completed",
+          "implementation_notes": "This ensures all Terraform files are properly formatted and syntactically correct after the changes."
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "total_phases": 2,
+    "total_subtasks": 3,
+    "services_involved": [
+      "terraform-module"
+    ],
+    "parallelism": {
+      "max_parallel_phases": 1,
+      "parallel_groups": [],
+      "recommended_workers": 1,
+      "speedup_estimate": "Sequential execution required (simple workflow)"
+    },
+    "startup_command": "cd ./.auto-claude/specs/003-default-wildcard-github-environments-permits-any-e && cat build-progress.txt"
+  },
+  "verification_strategy": {
+    "risk_level": "medium",
+    "skip_validation": false,
+    "test_creation_phase": "not_applicable",
+    "test_types_required": [
+      "terraform_validate"
+    ],
+    "security_scanning_required": false,
+    "staging_deployment_required": false,
+    "acceptance_criteria": [
+      "github_environments variable no longer defaults to ['*']",
+      "Validation prevents wildcard values in github_environments",
+      "README.md documents the breaking change with migration guidance",
+      "terraform fmt -check passes",
+      "terraform validate passes"
+    ],
+    "verification_steps": [
+      {
+        "name": "Terraform Format Check",
+        "command": "terraform fmt -check -recursive",
+        "expected_outcome": "All files properly formatted",
+        "type": "command",
+        "required": true,
+        "blocking": true
+      },
+      {
+        "name": "Terraform Validate",
+        "command": "terraform validate",
+        "expected_outcome": "Configuration is valid",
+        "type": "command",
+        "required": true,
+        "blocking": true
+      },
+      {
+        "name": "Documentation Review",
+        "command": "manual",
+        "expected_outcome": "README.md clearly explains breaking change and provides migration guidance",
+        "type": "manual",
+        "required": true,
+        "blocking": false
+      }
+    ],
+    "reasoning": "Medium risk because this is a BREAKING CHANGE that affects all users relying on the wildcard default. However, it's a necessary security fix. No unit tests exist for Terraform modules, so validation relies on terraform fmt and validate commands."
+  },
+  "qa_acceptance": {
+    "unit_tests": {
+      "required": false,
+      "commands": [],
+      "minimum_coverage": null
+    },
+    "integration_tests": {
+      "required": false,
+      "commands": [],
+      "services_to_test": []
+    },
+    "e2e_tests": {
+      "required": false,
+      "commands": [],
+      "flows": []
+    },
+    "terraform_validation": {
+      "required": true,
+      "commands": [
+        "terraform fmt -check -recursive",
+        "terraform validate"
+      ],
+      "checks": [
+        "All .tf files are properly formatted",
+        "Variable validation blocks are syntactically correct",
+        "No terraform errors or warnings"
+      ]
+    },
+    "documentation_validation": {
+      "required": true,
+      "checks": [
+        "README.md updated with new github_environments default value",
+        "BREAKING CHANGE section added with security rationale",
+        "Migration guidance provided for existing users",
+        "Inputs table reflects accurate default value"
+      ]
+    }
+  },
+  "qa_signoff": null,
+  "status": "human_review",
+  "planStatus": "review",
+  "xstateState": "human_review",
+  "executionPhase": "complete",
+  "updated_at": "2026-04-03T18:44:52.499Z",
+  "reviewReason": "completed"
+}
