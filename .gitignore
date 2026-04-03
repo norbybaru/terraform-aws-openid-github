@@ -1,2 +1,7 @@
 .terraform.lock.hcl
 *.lock
+
+# Auto Claude data directory
+.auto-claude/
+.auto-claude*
+.claude_settings.json
