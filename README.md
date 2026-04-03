@@ -12,6 +12,16 @@ The module can manage the following:
 - **allow_environment**: Allow GitHub Actions only for environments, by setting github_environments you can limit to a dedicated environment.
 - **deny_pull_request**: Denies assuming the role for a pull request.
 
+## OIDC Thumbprints
+
+**Important Security Notice:** AWS now automatically obtains and manages the certificate thumbprints for GitHub's OIDC provider. The `thumb_prints` parameter is deprecated and should be left empty (default: `[]`).
+
+- AWS ignores any manually specified thumbprints for GitHub OIDC (`token.actions.githubusercontent.com`)
+- Leaving thumbprints empty allows AWS to automatically manage certificate rotation
+- This is the recommended configuration for security and reliability
+
+For more details, see the [AWS documentation on OIDC providers](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_create_oidc_verify-thumbprint.html).
+
 ## Requirements
 
 | Name | Version |
@@ -49,7 +59,7 @@ The module can manage the following:
 | <a name="input_role_path"></a> [role\_path](#input\_role\_path) | (Optional) Path for the created role, requires `repo` is set. | `string` | `"/github-actions/"` | no |
 | <a name="input_role_permissions_boundary"></a> [role\_permissions\_boundary](#input\_role\_permissions\_boundary) | (Optional) Boundary for the created role, requires `repo` is set. | `string` | `null` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Tags to attach onto resources | `map(string)` | `{}` | no |
-| <a name="input_thumb_prints"></a> [thumb\_prints](#input\_thumb\_prints) | A list of server certificate thumbprints for the OpenID Connect (OIDC) identity provider's server certificate(s) | `list(string)` | <pre>[<br>  "6938fd4d98bab03faadb97b34396831e3780aea1"<br>]</pre> | no |
+| <a name="input_thumb_prints"></a> [thumb\_prints](#input\_thumb\_prints) | (Optional) A list of server certificate thumbprints for the OpenID Connect (OIDC) identity provider's server certificate(s). AWS obtains thumbprints automatically when not specified. | `list(string)` | `[]` | no |
 
 ## Outputs
 
