@@ -6,3 +6,6 @@
 .auto-claude*
 .claude_settings.json
 
+# Pre-commit hooks
+.pre-commit-config.yaml.backup
+
