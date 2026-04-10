@@ -36,11 +36,17 @@ locals {
 
   conditions = setunion(local.default_allow_main, local.default_allow_environment, local.default_allow_all, local.default_deny_pull_request, local.default_allow_pull_request, var.additional_conditions)
 
+  # Merge conditions with the same test and variable into a single condition with combined values
+  # This prevents duplicate condition blocks in the IAM policy trust document
   merge_conditions = [
-    for k, v in { for c in local.conditions : "${c.test}|${c.variable}" => c... } : # group by test & variable
+    # Step 1: Group conditions by composite key "test|variable" using grouping syntax (=> c...)
+    # Example: conditions with StringLike + github_sub get grouped together
+    for k, v in { for c in local.conditions : "${c.test}|${c.variable}" => c... } :
     {
+      # Step 2: Extract the composite key (contains "test|variable")
       "test" : k,
-      "values" : flatten([for index, sp in v[*].values : v[index].values if v[index].variable == v[0].variable]) # loop again to build the values inner map
+      # Step 3: Flatten all values arrays from grouped conditions into a single values array
+      "values" : flatten([for c in v : c.values])
     }
   ]
 }
