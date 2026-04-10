@@ -1,5 +1,5 @@
 variable "additional_conditions" {
-  description = "(Optional) Additonal conditions for checking the OIDC claim."
+  description = "(Optional) Additional conditions for checking the OIDC claim."
   type = list(object({
     test     = string
     variable = string
