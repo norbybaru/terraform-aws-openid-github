@@ -16,11 +16,18 @@ locals {
     values   = local.github_environments
   }] : []
 
-  default_allow_all = contains(var.default_conditions, "allow_all") ? [{
-    test     = "StringLike"
-    variable = local.github_sub
-    values   = ["repo:${var.repo}:*"]
-  }] : []
+  default_allow_all = contains(var.default_conditions, "allow_all") ? [
+    {
+      test     = "StringLike"
+      variable = local.github_sub
+      values   = ["repo:${var.repo}:*"]
+    },
+    {
+      test     = "StringNotLike"
+      variable = local.github_sub
+      values   = ["repo:${var.repo}:pull_request"]
+    }
+  ] : []
 
   default_deny_pull_request = contains(var.default_conditions, "deny_pull_request") ? [{
     test     = "StringNotLike"
