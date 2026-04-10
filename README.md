@@ -239,7 +239,7 @@ This configuration:
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
-| <a name="input_additional_conditions"></a> [additional\_conditions](#input\_additional\_conditions) | (Optional) Additonal conditions for checking the OIDC claim. | <pre>list(object({<br>    test     = string<br>    variable = string<br>    values   = list(string)<br>  }))</pre> | `[]` | no |
+| <a name="input_additional_conditions"></a> [additional\_conditions](#input\_additional\_conditions) | (Optional) Additional conditions for checking the OIDC claim. | <pre>list(object({<br>    test     = string<br>    variable = string<br>    values   = list(string)<br>  }))</pre> | `[]` | no |
 | <a name="input_client_id"></a> [client\_id](#input\_client\_id) | A list of client IDs (also known as audiences) | `list(string)` | <pre>[<br>  "sts.amazonaws.com"<br>]</pre> | no |
 | <a name="input_default_conditions"></a> [default\_conditions](#input\_default\_conditions) | (Optional) Default condtions to apply, at least one of the following is mandatory: 'allow\_main', 'allow\_environment', 'allow\_pull\_request', and 'deny\_pull\_request'. Note: 'allow\_all' is deprecated and blocked due to security concerns. | `list(string)` | <pre>[<br>  "allow_main",<br>  "deny_pull_request"<br>]</pre> | no |
 | <a name="input_github_environments"></a> [github\_environments](#input\_github\_environments) | (Optional) Allow GitHub action to deploy to all (default) or to one of the environments in the list. | `list(string)` | <pre>[<br>  "*"<br>]</pre> | no |
@@ -251,7 +251,7 @@ This configuration:
 | <a name="input_role_path"></a> [role\_path](#input\_role\_path) | (Optional) Path for the created role, requires `repo` is set. | `string` | `"/github-actions/"` | no |
 | <a name="input_role_permissions_boundary"></a> [role\_permissions\_boundary](#input\_role\_permissions\_boundary) | (Optional) Boundary for the created role, requires `repo` is set. | `string` | `null` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Tags to attach onto resources | `map(string)` | `{}` | no |
-| <a name="input_thumb_prints"></a> [thumb\_prints](#input\_thumb\_prints) | A list of server certificate thumbprints for the OpenID Connect (OIDC) identity provider's server certificate(s) | `list(string)` | <pre>[<br>  "6938fd4d98bab03faadb97b34396831e3780aea1"<br>]</pre> | no |
+| <a name="input_thumb_prints"></a> [thumb\_prints](#input\_thumb\_prints) | (Optional) A list of server certificate thumbprints for the OpenID Connect (OIDC) identity provider's server certificate(s). AWS obtains thumbprints automatically when not specified. | `list(string)` | `[]` | no |
 
 ## Outputs
 
@@ -261,6 +261,64 @@ This configuration:
 | <a name="output_openid_connect_provider_arn"></a> [openid\_connect\_provider\_arn](#output\_openid\_connect\_provider\_arn) | AWS OpenID Connected identity provider arn. |
 | <a name="output_assume_role"></a> [assume_role](#output\_assume_role) | The created role that can be assumed to configure the repository. |
 
+
+## BREAKING CHANGES
+
+### Version 2.0.0 - Security Fix for `github_environments` Default
+
+**⚠️ IMPORTANT: This is a breaking change that improves security.**
+
+#### What Changed
+
+The `github_environments` variable default has been changed from `["*"]` (wildcard) to `[]` (empty list), and wildcard values are now explicitly rejected by validation.
+
+#### Security Rationale
+
+The previous default of `["*"]` allowed workflows to assume the IAM role from **any** GitHub environment name, including ad-hoc or unprotected environments. This effectively bypassed GitHub's environment protection rules, which are a critical security control that can enforce:
+
+- Required reviewers before deployment
+- Wait timers
+- Deployment branch restrictions
+
+When users selected `allow_environment` in `default_conditions`, they likely expected to restrict access to specific, protected environments. The wildcard default nullified this security control, making environment-based access controls ineffective.
+
+#### Migration Guide
+
+**If you were relying on the wildcard default:**
+
+You must now explicitly specify the environments you want to allow. Update your module configuration:
+
+```hcl
+module "gh_openid" {
+  source = "github.com/norbybaru/terraform-aws-openid-github"
+  repo   = "<org>/<repo>"
+  
+  default_conditions = ["allow_environment"]
+  
+  # REQUIRED: Explicitly list allowed environments
+  github_environments = ["production", "staging"]
+}
+```
+
+**If you were already specifying environments:**
+
+No action required. Your configuration will continue to work as expected.
+
+**If you need to allow all environments (not recommended):**
+
+While wildcards are no longer supported, you can list all your environment names explicitly. However, we strongly recommend using specific environment names to leverage GitHub's environment protection features.
+
+**If you don't use environment-based conditions:**
+
+No action required. The empty default has no effect when `allow_environment` is not in your `default_conditions`.
+
+#### Validation Changes
+
+The module now validates that environment names do not contain wildcards (`*`). Attempting to use wildcards will result in a validation error:
+
+```
+Error: Wildcards are not allowed in environment names.
+```
 
 ## Usage
 Usage without additional policies attached to the role

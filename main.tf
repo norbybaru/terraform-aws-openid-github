@@ -3,6 +3,10 @@ resource "aws_iam_openid_connect_provider" "openid_connect" {
   url             = var.provider_url
   client_id_list  = var.client_id
   thumbprint_list = var.thumb_prints
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 data "aws_iam_policy_document" "openid_policy_document_assume_role" {

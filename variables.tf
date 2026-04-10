@@ -1,5 +1,5 @@
 variable "additional_conditions" {
-  description = "(Optional) Additonal conditions for checking the OIDC claim."
+  description = "(Optional) Additional conditions for checking the OIDC claim."
   type = list(object({
     test     = string
     variable = string
@@ -15,7 +15,7 @@ variable "client_id" {
 }
 
 variable "default_conditions" {
-  description = "(Optional) Default condtions to apply, at least one of the following is mandatory: 'allow_main', 'allow_environment', 'allow_pull_request', 'allow_all' and 'deny_pull_request'."
+  description = "(Optional) Default conditions to apply, at least one of the following is mandatory: 'allow_main', 'allow_environment', 'allow_pull_request', 'allow_all' and 'deny_pull_request'."
   type        = list(string)
   default     = ["allow_main", "deny_pull_request"]
   validation {
@@ -35,7 +35,11 @@ variable "default_conditions" {
 variable "github_environments" {
   description = "(Optional) Allow GitHub action to deploy to all (default) or to one of the environments in the list."
   type        = list(string)
-  default     = ["*"]
+  default     = []
+  validation {
+    condition     = alltrue([for env in var.github_environments : !can(regex("^.*\\*.*$", env))])
+    error_message = "Wildcards are not allowed in environment names."
+  }
 }
 
 variable "provider_url" {
@@ -67,6 +71,14 @@ variable "role_max_session_duration" {
   description = "Maximum session duration (in seconds) that you want to set for the specified role."
   type        = number
   default     = null
+  validation {
+    condition     = var.role_max_session_duration == null || var.role_max_session_duration >= 3600
+    error_message = "Role max session duration must be at least 3600 seconds (1 hour) as per AWS IAM role limits."
+  }
+  validation {
+    condition     = var.role_max_session_duration == null || var.role_max_session_duration <= 43200
+    error_message = "Role max session duration must not exceed 43200 seconds (12 hours) as per AWS IAM role limits. For security best practices with short-lived GitHub Actions OIDC tokens, consider using shorter session durations."
+  }
 }
 
 variable "role_name" {
@@ -92,8 +104,11 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+# Note: As of July 2023, AWS now ignores the thumbprint for GitHub Actions OIDC provider.
+# The thumbprint is no longer validated by AWS, making this parameter optional.
+# See: https://github.blog/changelog/2023-06-27-github-actions-update-on-oidc-integration-with-aws/
 variable "thumb_prints" {
   type        = list(string)
   description = "A list of server certificate thumbprints for the OpenID Connect (OIDC) identity provider's server certificate(s)"
-  default     = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
+  default     = []
 }
