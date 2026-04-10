@@ -26,6 +26,10 @@ variable "default_conditions" {
     condition     = length(var.default_conditions) > 0
     error_message = "At least one of the following configuration needs to be set: 'allow_main', 'allow_environment', 'allow_pull_request', 'allow_all' and 'deny_pull_request'."
   }
+  validation {
+    condition     = !contains(var.default_conditions, "allow_all")
+    error_message = "DEPRECATED: 'allow_all' is deprecated due to security concerns as it grants access to forked repositories. Please use specific conditions like 'allow_main', 'allow_environment', or 'allow_pull_request' instead."
+  }
 }
 
 variable "github_environments" {
