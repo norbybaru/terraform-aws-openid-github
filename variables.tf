@@ -1,5 +1,5 @@
 variable "additional_conditions" {
-  description = "(Optional) Additonal conditions for checking the OIDC claim."
+  description = "(Optional) Additional conditions for checking the OIDC claim."
   type = list(object({
     test     = string
     variable = string
@@ -15,7 +15,7 @@ variable "client_id" {
 }
 
 variable "default_conditions" {
-  description = "(Optional) Default condtions to apply, at least one of the following is mandatory: 'allow_main', 'allow_environment', 'allow_pull_request', 'allow_all' and 'deny_pull_request'."
+  description = "(Optional) Default conditions to apply, at least one of the following is mandatory: 'allow_main', 'allow_environment', 'allow_pull_request', 'allow_all' and 'deny_pull_request'."
   type        = list(string)
   default     = ["allow_main", "deny_pull_request"]
   validation {
