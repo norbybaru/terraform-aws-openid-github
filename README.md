@@ -252,16 +252,16 @@ For more details, see the [AWS documentation on OIDC providers](https://docs.aws
 | <a name="input_additional_conditions"></a> [additional\_conditions](#input\_additional\_conditions) | (Optional) Additional conditions for checking the OIDC claim. | <pre>list(object({<br>    test     = string<br>    variable = string<br>    values   = list(string)<br>  }))</pre> | `[]` | no |
 | <a name="input_client_id"></a> [client\_id](#input\_client\_id) | A list of client IDs (also known as audiences) | `list(string)` | <pre>[<br>  "sts.amazonaws.com"<br>]</pre> | no |
 | <a name="input_default_conditions"></a> [default\_conditions](#input\_default\_conditions) | (Optional) Default conditions to apply, at least one of the following is mandatory: 'allow\_main', 'allow\_environment', 'allow\_pull\_request', 'allow\_all' and 'deny\_pull\_request'. | `list(string)` | <pre>[<br>  "allow_main",<br>  "deny_pull_request"<br>]</pre> | no |
-| <a name="input_github_environments"></a> [github\_environments](#input\_github\_environments) | (Optional) Specify which GitHub environments are allowed to assume the role. Wildcards are not permitted. | `list(string)` | `[]` | no |
+| <a name="input_github_environments"></a> [github\_environments](#input\_github\_environments) | (Optional) List of GitHub environments allowed to assume the role. Only enforced when 'allow\_environment' is included in default_conditions. | `list(string)` | `[]` | no |
 | <a name="input_openid_connect_provider_arn"></a> [openid\_connect\_provider\_arn](#input\_openid\_connect\_provider\_arn) | Set the openid connect provider ARN when the provider is not managed by the module. | `string` | `null` | no |
 | <a name="input_provider_url"></a> [provider\_url](#input\_provider\_url) | The URL of the identity provider. Corresponds to the iss claim. | `string` | `"https://token.actions.githubusercontent.com"` | no |
-| <a name="input_repo"></a> [repo](#input\_repo) | (Optional) GitHub repository to grant access to assume a role via OIDC. When the repo is set, a role will be created. | `string` | n/a | yes |
+| <a name="input_repo"></a> [repo](#input\_repo) | (Optional) GitHub repository to grant access to assume a role via OIDC. Format: owner/repo. Used to generate the default role name and trust policy conditions. | `string` | n/a | yes |
 | <a name="input_role_max_session_duration"></a> [role\_max\_session\_duration](#input\_role\_max\_session\_duration) | Maximum session duration (in seconds) that you want to set for the specified role. | `number` | `null` | no |
-| <a name="input_role_name"></a> [role\_name](#input\_role\_name) | (Optional) role name of the created role, if not provided the `namespace` will be used. | `string` | `null` | no |
-| <a name="input_role_path"></a> [role\_path](#input\_role\_path) | (Optional) Path for the created role, requires `repo` is set. | `string` | `"/github-actions/"` | no |
-| <a name="input_role_permissions_boundary"></a> [role\_permissions\_boundary](#input\_role\_permissions\_boundary) | (Optional) Boundary for the created role, requires `repo` is set. | `string` | `null` | no |
+| <a name="input_role_name"></a> [role\_name](#input\_role\_name) | (Optional) Name of the IAM role to create. If not provided, defaults to the repository name (from var.repo) with slashes replaced by hyphens and '-role' appended. | `string` | `null` | no |
+| <a name="input_role_path"></a> [role\_path](#input\_role\_path) | (Optional) Path for the IAM role. | `string` | `"/github-actions/"` | no |
+| <a name="input_role_permissions_boundary"></a> [role\_permissions\_boundary](#input\_role\_permissions\_boundary) | (Optional) ARN of the permissions boundary policy to attach to the IAM role. | `string` | `null` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Tags to attach onto resources | `map(string)` | `{}` | no |
-| <a name="input_thumb_prints"></a> [thumb\_prints](#input\_thumb\_prints) | (Optional) A list of server certificate thumbprints for the OpenID Connect (OIDC) identity provider's server certificate(s). AWS obtains thumbprints automatically when not specified. | `list(string)` | `[]` | no |
+| <a name="input_thumb_prints"></a> [thumb\_prints](#input\_thumb\_prints) | A list of server certificate thumbprints for the OpenID Connect (OIDC) identity provider's server certificate(s) | `list(string)` | `[]` | no |
 
 ## Outputs
 
