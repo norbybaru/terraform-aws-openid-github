@@ -55,7 +55,7 @@ variable "openid_connect_provider_arn" {
 }
 
 variable "repo" {
-  description = "(Optional) GitHub repository to grant access to assume a role via OIDC. When the repo is set, a role will be created."
+  description = "(Optional) GitHub repository to grant access to assume a role via OIDC. Format: owner/repo. Used to generate the default role name and trust policy conditions."
   type        = string
   validation {
     condition     = var.repo == null || can(regex("^.+\\/.+", var.repo))
@@ -82,19 +82,19 @@ variable "role_max_session_duration" {
 }
 
 variable "role_name" {
-  description = "(Optional) role name of the created role, if not provided the `namespace` will be used."
+  description = "(Optional) Name of the IAM role to create. If not provided, defaults to the repository name (from var.repo) with slashes replaced by hyphens and '-role' appended."
   type        = string
   default     = null
 }
 
 variable "role_path" {
-  description = "(Optional) Path for the created role, requires `repo` is set."
+  description = "(Optional) Path for the IAM role."
   type        = string
   default     = "/github-actions/"
 }
 
 variable "role_permissions_boundary" {
-  description = "(Optional) Boundary for the created role, requires `repo` is set."
+  description = "(Optional) ARN of the permissions boundary policy to attach to the IAM role."
   type        = string
   default     = null
 }
