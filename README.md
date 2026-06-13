@@ -199,7 +199,7 @@ This configuration:
    resource "aws_cloudwatch_log_metric_filter" "github_assume_role" {
      name           = "github-actions-assume-role"
      log_group_name = "/aws/cloudtrail/my-trail"
-     pattern        = "{ $.eventName = \"AssumeRoleWithWebIdentity\" && $.requestParameters.roleArn = \"${module.gh_openid.role.arn}\" }"
+     pattern        = "{ $.eventName = \"AssumeRoleWithWebIdentity\" && $.requestParameters.roleArn = \"${module.gh_openid.assume_role.arn}\" }"
    }
    ```
 
@@ -362,7 +362,7 @@ resource "aws_s3_bucket" "example" {
 
 resource "aws_iam_role_policy" "s3" {
   name   = "s3-policy"
-  role   = module.gh_openid.role.name
+  role   = module.gh_openid.assume_role.name
   policy = data.aws_iam_policy_document.s3.json
 }
 
