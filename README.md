@@ -1,241 +1,120 @@
-# Terraform Github Action OpenID Connect Provider
-This module manages OpenID Connect (OIDC) integration between [GitHub Actions and AWS](https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services).
+# Terraform GitHub Actions OpenID Connect Provider
 
-The module can manage the following:
-- The OpenID Connect identity provider for GitHub in your AWS account (via a submodule).
-- A role and assume role policy to check to check OIDC claims.
+Terraform module to set up [OpenID Connect (OIDC) authentication between GitHub Actions and AWS](https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services). It lets GitHub Actions workflows assume an AWS IAM role without long-lived access keys.
 
-## ⚠️ Security Notice: allow_all Deprecated
+## Features
 
-The `allow_all` condition has been **deprecated and blocked** due to a critical security vulnerability (CVE-level severity).
+- Manages the GitHub OIDC identity provider in your AWS account, or reuses an existing one via `openid_connect_provider_arn`.
+- Creates an IAM role with an assume-role policy that validates GitHub OIDC claims.
+- Restricts who can assume the role through preset and custom claim conditions (branch, pull request, environment).
 
-**Issue**: The previous implementation used the pattern `repo:<org>/<repo>:*` which matched ALL GitHub OIDC sub-claims, including pull requests from forked repositories. This allowed attackers to:
-1. Fork your public repository
-2. Trigger GitHub Actions workflows  
-3. Assume your AWS IAM role
-4. Access your AWS resources
+## Usage
 
-**Migration Required**: If you were using `allow_all`, you must update your configuration:
+### Basic
 
-```hcl
-# ❌ BLOCKED - Will cause validation error
-default_conditions = ["allow_all"]
-
-# ✅ Recommended - Main branch only (safest)
-default_conditions = ["allow_main", "deny_pull_request"]
-
-# ✅ Alternative - Main branch + PRs from main repo only
-default_conditions = ["allow_main", "allow_pull_request"]
-
-# ✅ Alternative - Environment-based deployments
-default_conditions = ["allow_environment"]
-github_environments = ["production", "staging"]
-```
-
-## Manage roles for a repo
-- **allow_all**: ⚠️ **DEPRECATED** - Blocked due to critical security vulnerability. Use specific conditions instead.
-- **allow_main** : Allow GitHub Actions only running on the main branch.
-- **allow_pull_request**: Allow assuming the role for a pull request.
-- **allow_environment**: Allow GitHub Actions only for environments, by setting github_environments you can limit to a dedicated environment.
-- **deny_pull_request**: Denies assuming the role for a pull request.
-
-**Security Best Practice**: Always use the principle of least privilege. Only grant access to specific branches, environments, or events that genuinely need AWS access.
-
-## Security Best Practices
-
-### Understanding the allow_all Vulnerability
-
-The `allow_all` condition created a **critical security vulnerability** that allowed unauthorized AWS access through forked repositories. Here's why it was dangerous:
-
-**The Problem:**
-- The `allow_all` implementation used the OIDC claim pattern: `repo:<org>/<repo>:*`
-- The `*` wildcard matched **ALL** GitHub OIDC sub-claims, including:
-  - `repo:myorg/myrepo:ref:refs/heads/main` ✓ (intended)
-  - `repo:myorg/myrepo:pull_request` ✓ (intended for some workflows)
-  - `repo:myorg/myrepo:environment:production` ✓ (intended)
-  - `repo:myorg/myrepo:pull_request` **from forked repositories** ⚠️ (UNINTENDED!)
-
-**Attack Scenario:**
-1. Attacker forks your public repository
-2. Attacker modifies GitHub Actions workflow in their fork to exfiltrate credentials or access AWS resources
-3. When the workflow runs, GitHub issues an OIDC token with `sub` claim: `repo:myorg/myrepo:pull_request`
-4. Your AWS IAM role accepts this token because it matches `repo:myorg/myrepo:*`
-5. Attacker now has full access to your AWS resources via the assumed role
-
-**Impact:**
-- Data exfiltration from S3 buckets, databases, or other AWS services
-- Resource manipulation (EC2, Lambda, etc.)
-- Cost inflation through resource creation
-- Supply chain attacks through deployment pipeline compromise
-
-### Recommended Secure Configurations
-
-Choose the configuration that best matches your workflow requirements:
-
-#### 1. Main Branch Only (Most Secure)
-**Use case**: Production deployments from main/master branch only
+Allow only workflows on the `main` branch to assume the role (the default; pull requests are denied):
 
 ```hcl
 module "gh_openid" {
   source = "github.com/norbybaru/terraform-aws-openid-github"
-  repo   = "myorg/myrepo"
-  
+  repo   = "<org>/<repo>"
+}
+```
+
+### With an IAM policy attached
+
+Attach least-privilege permissions to the created role:
+
+```hcl
+module "gh_openid" {
+  source = "github.com/norbybaru/terraform-aws-openid-github"
+  repo   = "<org>/<repo>"
+
   default_conditions = ["allow_main", "deny_pull_request"]
 }
-```
 
-**Why this is secure:**
-- Only commits merged to main branch can assume the role
-- Pull requests (including from forks) are explicitly denied
-- Provides clear separation between testing and production
+resource "aws_s3_bucket" "example" {
+  bucket = "bucket-name"
+}
 
-#### 2. Main Branch + Pull Requests from Main Repository
-**Use case**: Testing AWS integrations in PRs from trusted contributors
+resource "aws_iam_role_policy" "s3" {
+  name   = "s3-policy"
+  role   = module.gh_openid.assume_role.name
+  policy = data.aws_iam_policy_document.s3.json
+}
 
-```hcl
-module "gh_openid" {
-  source = "github.com/norbybaru/terraform-aws-openid-github"
-  repo   = "myorg/myrepo"
-  
-  default_conditions = ["allow_main", "allow_pull_request"]
+data "aws_iam_policy_document" "s3" {
+  statement {
+    sid     = "1"
+    actions = ["s3:PutObject", "s3:GetObject"]
+    resources = [
+      aws_s3_bucket.example.arn,
+      "${aws_s3_bucket.example.arn}/*",
+    ]
+  }
 }
 ```
 
-**Why this is secure:**
-- `allow_pull_request` only allows PRs from the **main repository**, not forks
-- Maintains protection against forked repository attacks
-- Enables pre-merge testing in a controlled environment
+### Environment-based deployments
 
-**Note**: This still allows any branch in your main repository to trigger workflows. Ensure branch protection rules are in place.
-
-#### 3. Environment-Based Deployments (Most Flexible)
-**Use case**: Multiple deployment stages with GitHub Environments
+Restrict the role to specific GitHub Environments (leverages environment protection rules such as required reviewers):
 
 ```hcl
 module "gh_openid" {
   source = "github.com/norbybaru/terraform-aws-openid-github"
-  repo   = "myorg/myrepo"
-  
+  repo   = "<org>/<repo>"
+
   default_conditions  = ["allow_environment"]
   github_environments = ["production", "staging"]
 }
 ```
 
-**Why this is secure:**
-- Leverages GitHub Environment protection rules (required reviewers, wait timers)
-- Provides granular control over which workflows can deploy
-- Supports multiple environments with different security requirements
+### Reuse an existing OIDC provider
 
-### Using deny_pull_request
+Only one OIDC provider per URL can exist per AWS account. When consuming this module multiple times in the same account, create the provider once and pass its ARN to the others:
 
-The `deny_pull_request` condition provides an **additional layer of defense** by explicitly blocking pull request workflows from assuming the role.
-
-**When to use:**
-- ✅ Production roles that should only be accessible from main branch
-- ✅ Roles with sensitive permissions (write access to databases, S3 buckets)
-- ✅ When you want defense-in-depth (combine with `allow_main`)
-
-**How it works:**
 ```hcl
-default_conditions = ["allow_main", "deny_pull_request"]
+module "gh_openid" {
+  source = "github.com/norbybaru/terraform-aws-openid-github"
+  repo   = "<org>/<repo>"
+
+  openid_connect_provider_arn = "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com"
+}
 ```
 
-This configuration:
-1. **Allows** workflows running on the main branch via `allow_main`
-2. **Denies** any workflow triggered by a pull request via `deny_pull_request`
-3. The `deny_pull_request` acts as a safety net even if `allow_main` has unexpected behavior
+## Condition presets
 
-**Workflow evaluation:**
-- Main branch push: ✅ Allowed (matches `allow_main`, not blocked by `deny_pull_request`)
-- Pull request from main repo: ❌ Denied (blocked by `deny_pull_request`)
-- Pull request from fork: ❌ Denied (blocked by `deny_pull_request`)
-- Tag/release: ❌ Denied (doesn't match `allow_main`)
+Set `default_conditions` to control which workflows can assume the role. Default: `["allow_main", "deny_pull_request"]`.
 
-**Best Practice**: Always include `deny_pull_request` when using `allow_main` for production roles. This provides defense-in-depth and makes your security intent explicit.
+| Preset | Effect |
+|---|---|
+| `allow_main` | Allow workflows running on the `main` branch. |
+| `allow_pull_request` | Allow pull requests from the main repository (not forks). |
+| `allow_environment` | Allow the GitHub Environments listed in `github_environments`. |
+| `deny_pull_request` | Deny any workflow triggered by a pull request. |
+| `allow_all` | ⚠️ **Deprecated and blocked** — see [SECURITY.md](SECURITY.md). |
 
-### Additional Security Recommendations
+Notes:
 
-1. **Use Separate Roles**: Create different IAM roles for different environments/workflows
-   ```hcl
-   # Production role - strict controls
-   module "gh_openid_prod" {
-     source             = "github.com/norbybaru/terraform-aws-openid-github"
-     repo               = "myorg/myrepo"
-     role_name          = "github-actions-prod"
-     default_conditions = ["allow_main", "deny_pull_request"]
-   }
-   
-   # Development role - more permissive for testing
-   module "gh_openid_dev" {
-     source             = "github.com/norbybaru/terraform-aws-openid-github"
-     repo               = "myorg/myrepo"
-     role_name          = "github-actions-dev"
-     default_conditions = ["allow_main", "allow_pull_request"]
-   }
-   ```
+- `allow_pull_request` is suppressed automatically when `deny_pull_request` is also set.
+- Conditions sharing the same `test` + `variable` are merged into a single IAM condition with combined values.
+- Add custom claim checks with `additional_conditions`.
 
-2. **Scope IAM Permissions**: Use least-privilege IAM policies on the assumed role
-   ```hcl
-   # Good: Specific resources and actions
-   data "aws_iam_policy_document" "limited" {
-     statement {
-       actions   = ["s3:PutObject", "s3:GetObject"]
-       resources = ["arn:aws:s3:::my-specific-bucket/*"]
-     }
-   }
-   
-   # Bad: Overly broad permissions
-   data "aws_iam_policy_document" "too_broad" {
-     statement {
-       actions   = ["s3:*"]
-       resources = ["*"]
-     }
-   }
-   ```
+> **Security:** Always grant the least access a workflow needs. See [SECURITY.md](SECURITY.md) for recommended configurations and the `allow_all` vulnerability.
 
-3. **Monitor and Audit**: Enable CloudTrail logging for role assumption events
-   ```hcl
-   # Monitor who is assuming your GitHub Actions role
-   resource "aws_cloudwatch_log_metric_filter" "github_assume_role" {
-     name           = "github-actions-assume-role"
-     log_group_name = "/aws/cloudtrail/my-trail"
-     pattern        = "{ $.eventName = \"AssumeRoleWithWebIdentity\" && $.requestParameters.roleArn = \"${module.gh_openid.assume_role.arn}\" }"
-   }
-   ```
-
-4. **Use Session Tags**: Leverage OIDC claims for fine-grained access control
-   ```hcl
-   additional_conditions = [
-     {
-       test     = "StringLike"
-       variable = "token.actions.githubusercontent.com:sub"
-       values   = ["repo:myorg/myrepo:ref:refs/heads/main"]
-     }
-   ]
-   ```
-
-## OIDC Thumbprints
-
-**Important Security Notice:** AWS now automatically obtains and manages the certificate thumbprints for GitHub's OIDC provider. The `thumb_prints` parameter is deprecated and should be left empty (default: `[]`).
-
-- AWS ignores any manually specified thumbprints for GitHub OIDC (`token.actions.githubusercontent.com`)
-- Leaving thumbprints empty allows AWS to automatically manage certificate rotation
-- This is the recommended configuration for security and reliability
-
-For more details, see the [AWS documentation on OIDC providers](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_create_oidc_verify-thumbprint.html).
-
+<!-- BEGIN_TF_DOCS -->
 ## Requirements
 
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.0.10 |
-| <a name="requirement_aws"></a> [aws](#requirement\_aws) | ~> 4.0 |
+| <a name="requirement_aws"></a> [aws](#requirement\_aws) | ~> 5.0 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_aws"></a> [aws](#provider\_aws) | ~> 4.0 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | ~> 5.0 |
 
 ## Resources
 
@@ -270,120 +149,10 @@ For more details, see the [AWS documentation on OIDC providers](https://docs.aws
 | <a name="output_conditions"></a> [conditions](#output\_conditions) | The assumed repository conditions added to the role. |
 | <a name="output_openid_connect_provider_arn"></a> [openid\_connect\_provider\_arn](#output\_openid\_connect\_provider\_arn) | AWS OpenID Connected identity provider arn. |
 | <a name="output_assume_role"></a> [assume_role](#output\_assume_role) | The created role that can be assumed to configure the repository. |
+<!-- END_TF_DOCS -->
 
+## Documentation
 
-## BREAKING CHANGES
-
-### Version 2.0.0 - Security Fix for `github_environments` Default
-
-**⚠️ IMPORTANT: This is a breaking change that improves security.**
-
-#### What Changed
-
-The `github_environments` variable default has been changed from `["*"]` (wildcard) to `[]` (empty list), and wildcard values are now explicitly rejected by validation.
-
-#### Security Rationale
-
-The previous default of `["*"]` allowed workflows to assume the IAM role from **any** GitHub environment name, including ad-hoc or unprotected environments. This effectively bypassed GitHub's environment protection rules, which are a critical security control that can enforce:
-
-- Required reviewers before deployment
-- Wait timers
-- Deployment branch restrictions
-
-When users selected `allow_environment` in `default_conditions`, they likely expected to restrict access to specific, protected environments. The wildcard default nullified this security control, making environment-based access controls ineffective.
-
-#### Migration Guide
-
-**If you were relying on the wildcard default:**
-
-You must now explicitly specify the environments you want to allow. Update your module configuration:
-
-```hcl
-module "gh_openid" {
-  source = "github.com/norbybaru/terraform-aws-openid-github"
-  repo   = "<org>/<repo>"
-  
-  default_conditions = ["allow_environment"]
-  
-  # REQUIRED: Explicitly list allowed environments
-  github_environments = ["production", "staging"]
-}
-```
-
-**If you were already specifying environments:**
-
-No action required. Your configuration will continue to work as expected.
-
-**If you need to allow all environments (not recommended):**
-
-While wildcards are no longer supported, you can list all your environment names explicitly. However, we strongly recommend using specific environment names to leverage GitHub's environment protection features.
-
-**If you don't use environment-based conditions:**
-
-No action required. The empty default has no effect when `allow_environment` is not in your `default_conditions`.
-
-#### Validation Changes
-
-The module now validates that environment names do not contain wildcards (`*`). Attempting to use wildcards will result in a validation error:
-
-```
-Error: Wildcards are not allowed in environment names.
-```
-
-## Usage
-Usage without additional policies attached to the role
-```hcl
-module "gh_openid" {
-  source = "github.com/norbybaru/terraform-aws-openid-github"
-  repo = "<org>/<repo>"
-
-  # override default conditions
-  default_conditions          = ["allow_main"]
-}
-```
-
-Usage with additional policies attached to the role
-```hcl
-module "gh_openid" {
-  source = "github.com/norbybaru/terraform-aws-openid-github"
-  repo = "<org>/<repo>"
-
-  # override default conditions
-  default_conditions          = ["allow_main"]
-}
-
-resource "aws_s3_bucket" "example" {
-  bucket = "bucket-name"
-
-  tags = {
-    allow-gh-action-access = "true"
-  }
-}
-
-resource "aws_iam_role_policy" "s3" {
-  name   = "s3-policy"
-  role   = module.gh_openid.assume_role.name
-  policy = data.aws_iam_policy_document.s3.json
-}
-
-data "aws_iam_policy_document" "s3" {
-  statement {
-    sid = "1"
-
-    actions = [
-      "s3:*",
-    ]
-
-    resources = [
-      aws_s3_bucket.example.arn,
-      "${aws_s3_bucket.example.arn}*"
-    ]
-
-    condition {
-      test     = "StringEquals"
-      variable = "aws:ResourceTag/allow-gh-action-access"
-      values = ["true"]
-    }
-  }
-}
-```
+- [SECURITY.md](SECURITY.md) — security model, the `allow_all` vulnerability, recommended configurations, and OIDC thumbprints.
+- [UPGRADE_GUIDE.md](UPGRADE_GUIDE.md) — breaking changes and migration steps between versions.
+- [CONTRIBUTING.md](CONTRIBUTING.md) — local development setup, commands, and CI.
