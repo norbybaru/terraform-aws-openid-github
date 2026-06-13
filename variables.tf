@@ -33,7 +33,7 @@ variable "default_conditions" {
 }
 
 variable "github_environments" {
-  description = "(Optional) Allow GitHub action to deploy to all (default) or to one of the environments in the list."
+  description = "(Optional) List of GitHub environments allowed to assume the role. Only enforced when 'allow_environment' is included in default_conditions."
   type        = list(string)
   default     = []
   validation {
