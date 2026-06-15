@@ -48,6 +48,12 @@ variable "provider_url" {
   default     = "https://token.actions.githubusercontent.com"
 }
 
+variable "create_openid_provider" {
+  description = "Whether this module manages the GitHub Actions OIDC provider. The provider is account-unique per URL, so consumers sharing an account must create it once and set this to false elsewhere, supplying the existing ARN via openid_connect_provider_arn. Prefer this explicit toggle over openid_connect_provider_arn alone: count keys off this bool, so it stays plan-time-known even when the ARN is computed (known after apply). When null, the legacy behaviour applies: create unless openid_connect_provider_arn is set."
+  type        = bool
+  default     = null
+}
+
 variable "openid_connect_provider_arn" {
   description = "Set the openid connect provider ARN when the provider is not managed by the module."
   type        = string

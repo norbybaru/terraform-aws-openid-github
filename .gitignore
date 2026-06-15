@@ -1,5 +1,6 @@
 .terraform.lock.hcl
 *.lock
+.terraform/
 
 # Auto Claude data directory
 .auto-claude/
@@ -9,3 +10,5 @@
 # Pre-commit hooks
 .pre-commit-config.yaml.backup
 
+# Claude
+.claude/

@@ -7,6 +7,10 @@ output "openid_connect_provider_arn" {
   value       = local.openid_provider_arn
 }
 output "assume_role" {
-  description = "The created role that can be assumed to configure the repository."
-  value       = aws_iam_role.main
+  description = "The created IAM role that can be assumed to configure the repository. Curated attributes — avoids leaking the provider-deprecated inline_policy carried by the full resource object."
+  value = {
+    arn  = aws_iam_role.main.arn
+    name = aws_iam_role.main.name
+    id   = aws_iam_role.main.id
+  }
 }
