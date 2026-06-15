@@ -1,5 +1,5 @@
 resource "aws_iam_openid_connect_provider" "openid_connect" {
-  count           = var.openid_connect_provider_arn != null ? 0 : 1
+  count           = local.create_openid_provider ? 1 : 0
   url             = var.provider_url
   client_id_list  = var.client_id
   thumbprint_list = var.thumb_prints
@@ -42,4 +42,11 @@ resource "aws_iam_role" "main" {
   assume_role_policy   = data.aws_iam_policy_document.openid_policy_document_assume_role.json
   max_session_duration = var.role_max_session_duration
   tags                 = var.tags
+
+  lifecycle {
+    precondition {
+      condition     = local.create_openid_provider || var.openid_connect_provider_arn != null
+      error_message = "openid_connect_provider_arn must be set when create_openid_provider is false: no provider is created to derive the trust-policy ARN from."
+    }
+  }
 }

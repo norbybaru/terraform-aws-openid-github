@@ -4,7 +4,7 @@ Terraform module to set up [OpenID Connect (OIDC) authentication between GitHub 
 
 ## Features
 
-- Manages the GitHub OIDC identity provider in your AWS account, or reuses an existing one via `openid_connect_provider_arn`.
+- Manages the GitHub OIDC identity provider in your AWS account, or reuses an existing one — toggle with `create_openid_provider` and supply the ARN via `openid_connect_provider_arn`.
 - Creates an IAM role with an assume-role policy that validates GitHub OIDC claims.
 - Restricts who can assume the role through preset and custom claim conditions (branch, pull request, environment).
 
@@ -69,16 +69,42 @@ module "gh_openid" {
 }
 ```
 
-### Reuse an existing OIDC provider
+### Multiple repositories in one AWS account
 
-Only one OIDC provider per URL can exist per AWS account. When consuming this module multiple times in the same account, create the provider once and pass its ARN to the others:
+Only one OIDC provider per URL can exist per AWS account, so when you need OIDC roles for several repositories, have **one** module instance manage the provider and the rest reuse it: set `create_openid_provider = false` and pass the ARN.
+
+Use the `create_openid_provider` toggle rather than relying on `openid_connect_provider_arn` alone. `count` keys off the bool, so it stays resolvable at plan time even when the ARN is a computed, "known after apply" value (e.g. another module's output). Passing a computed ARN **without** the toggle fails with `Invalid count argument`.
 
 ```hcl
-module "gh_openid" {
+# This instance owns the account's OIDC provider.
+module "gh_repo_a" {
   source = "github.com/norbybaru/terraform-aws-openid-github"
-  repo   = "<org>/<repo>"
+  repo   = "<org>/repo-a"
 
-  openid_connect_provider_arn = "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com"
+  create_openid_provider = true # default; shown for clarity
+}
+
+# Every other instance reuses it. No depends_on needed — referencing the
+# output wires the dependency, and create_openid_provider = false keeps
+# count plan-time-known even though the ARN is computed.
+module "gh_repo_b" {
+  source = "github.com/norbybaru/terraform-aws-openid-github"
+  repo   = "<org>/repo-b"
+
+  create_openid_provider      = false
+  openid_connect_provider_arn = module.gh_repo_a.openid_connect_provider_arn
+}
+```
+
+When the provider is managed **outside** this module — an `aws_iam_openid_connect_provider` resource in your root config, or one created in another state/account — do the same, passing that ARN:
+
+```hcl
+module "gh_repo_c" {
+  source = "github.com/norbybaru/terraform-aws-openid-github"
+  repo   = "<org>/repo-c"
+
+  create_openid_provider      = false
+  openid_connect_provider_arn = aws_iam_openid_connect_provider.github.arn
 }
 ```
 
@@ -130,6 +156,7 @@ Notes:
 |------|-------------|------|---------|:--------:|
 | <a name="input_additional_conditions"></a> [additional\_conditions](#input\_additional\_conditions) | (Optional) Additional conditions for checking the OIDC claim. | <pre>list(object({<br>    test     = string<br>    variable = string<br>    values   = list(string)<br>  }))</pre> | `[]` | no |
 | <a name="input_client_id"></a> [client\_id](#input\_client\_id) | A list of client IDs (also known as audiences) | `list(string)` | <pre>[<br>  "sts.amazonaws.com"<br>]</pre> | no |
+| <a name="input_create_openid_provider"></a> [create\_openid\_provider](#input\_create\_openid\_provider) | Whether this module manages the GitHub Actions OIDC provider. The provider is account-unique per URL, so consumers sharing an account must create it once and set this to false elsewhere, supplying the existing ARN via openid\_connect\_provider\_arn. Prefer this explicit toggle over openid\_connect\_provider\_arn alone: count keys off this bool, so it stays plan-time-known even when the ARN is computed (known after apply). When null, the legacy behaviour applies: create unless openid\_connect\_provider\_arn is set. | `bool` | `null` | no |
 | <a name="input_default_conditions"></a> [default\_conditions](#input\_default\_conditions) | (Optional) Default conditions to apply, at least one of the following is mandatory: 'allow\_main', 'allow\_environment', 'allow\_pull\_request', 'allow\_all' and 'deny\_pull\_request'. | `list(string)` | <pre>[<br>  "allow_main",<br>  "deny_pull_request"<br>]</pre> | no |
 | <a name="input_github_environments"></a> [github\_environments](#input\_github\_environments) | (Optional) List of GitHub environments allowed to assume the role. Only enforced when 'allow\_environment' is included in default_conditions. | `list(string)` | `[]` | no |
 | <a name="input_openid_connect_provider_arn"></a> [openid\_connect\_provider\_arn](#input\_openid\_connect\_provider\_arn) | Set the openid connect provider ARN when the provider is not managed by the module. | `string` | `null` | no |
@@ -148,7 +175,7 @@ Notes:
 |------|-------------|
 | <a name="output_conditions"></a> [conditions](#output\_conditions) | The assumed repository conditions added to the role. |
 | <a name="output_openid_connect_provider_arn"></a> [openid\_connect\_provider\_arn](#output\_openid\_connect\_provider\_arn) | AWS OpenID Connected identity provider arn. |
-| <a name="output_assume_role"></a> [assume_role](#output\_assume_role) | The created role that can be assumed to configure the repository. |
+| <a name="output_assume_role"></a> [assume_role](#output\_assume_role) | The created IAM role that can be assumed to configure the repository. Curated attributes — avoids leaking the provider-deprecated inline\_policy carried by the full resource object. |
 <!-- END_TF_DOCS -->
 
 ## Documentation

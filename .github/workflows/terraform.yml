@@ -1,16 +1,13 @@
-name: Terraform CI
+name: CI
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
-    branches:
-      - main
 
 jobs:
   terraform:
-    name: Terraform Format and Validate
+    name: Terraform Format, Validate and Test
     runs-on: ubuntu-latest
 
     steps:
@@ -20,7 +17,7 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: "1.5.0"
+          terraform_version: "1.15.3"
 
       - name: Terraform Format Check
         id: fmt
@@ -34,6 +31,10 @@ jobs:
       - name: Terraform Validate
         id: validate
         run: terraform validate
+
+      - name: Terraform Test
+        id: test
+        run: terraform test
 
       - name: Check Format Results
         if: steps.fmt.outcome == 'failure'

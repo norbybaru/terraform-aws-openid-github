@@ -2,7 +2,14 @@ locals {
   github_environments = (length(var.github_environments) > 0 && var.repo != null) ? [for e in var.github_environments : "repo:${var.repo}:environment:${e}"] : ["nothing"]
   github_sub          = "token.actions.githubusercontent.com:sub"
   role_name           = (var.repo != null && var.role_name != null) ? var.role_name : "${replace(var.repo != null ? var.repo : "", "/", "-")}-role"
-  openid_provider_arn = var.openid_connect_provider_arn != null ? var.openid_connect_provider_arn : aws_iam_openid_connect_provider.openid_connect[0].arn
+
+  # Single source of truth for the create-or-reuse decision. An explicit
+  # var.create_openid_provider wins (and is plan-time-known, so count never
+  # becomes "Invalid count argument" — even when the ARN is computed). When
+  # null, preserve legacy behaviour: create unless an ARN was supplied.
+  create_openid_provider = var.create_openid_provider != null ? var.create_openid_provider : var.openid_connect_provider_arn == null
+
+  openid_provider_arn = local.create_openid_provider ? aws_iam_openid_connect_provider.openid_connect[0].arn : var.openid_connect_provider_arn
 
   default_allow_main = contains(var.default_conditions, "allow_main") ? [{
     test     = "StringLike"
