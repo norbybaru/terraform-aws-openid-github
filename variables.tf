@@ -15,20 +15,30 @@ variable "client_id" {
 }
 
 variable "default_conditions" {
-  description = "(Optional) Default conditions to apply, at least one of the following is mandatory: 'allow_main', 'allow_environment', 'allow_pull_request', 'allow_all' and 'deny_pull_request'."
+  description = "(Optional) Default conditions to apply, at least one of the following is mandatory: 'allow_main', 'allow_environment', 'allow_pull_request', 'allow_tag', 'allow_all' and 'deny_pull_request'."
   type        = list(string)
   default     = ["allow_main", "deny_pull_request"]
   validation {
-    condition     = length(setintersection(var.default_conditions, ["allow_main", "allow_environment", "deny_pull_request", "allow_all", "allow_pull_request"])) == length(var.default_conditions)
-    error_message = "Valid configurations are: 'allow_main', 'allow_environment', 'allow_pull_request', 'allow_all' and 'deny_pull_request'."
+    condition     = length(setintersection(var.default_conditions, ["allow_main", "allow_environment", "deny_pull_request", "allow_all", "allow_pull_request", "allow_tag"])) == length(var.default_conditions)
+    error_message = "Valid configurations are: 'allow_main', 'allow_environment', 'allow_pull_request', 'allow_tag', 'allow_all' and 'deny_pull_request'."
   }
   validation {
     condition     = length(var.default_conditions) > 0
-    error_message = "At least one of the following configuration needs to be set: 'allow_main', 'allow_environment', 'allow_pull_request', 'allow_all' and 'deny_pull_request'."
+    error_message = "At least one of the following configuration needs to be set: 'allow_main', 'allow_environment', 'allow_pull_request', 'allow_tag', 'allow_all' and 'deny_pull_request'."
   }
   validation {
     condition     = !contains(var.default_conditions, "allow_all")
     error_message = "DEPRECATED: 'allow_all' is deprecated due to security concerns as it grants access to forked repositories. Please use specific conditions like 'allow_main', 'allow_environment', or 'allow_pull_request' instead."
+  }
+}
+
+variable "tag_pattern" {
+  description = "(Optional) Tag ref pattern trusted when 'allow_tag' is in default_conditions. Matched as StringLike against the OIDC sub, i.e. repo:<repo>:ref:refs/tags/<tag_pattern>. Default '*' trusts any tag; set 'v*' to scope to conventional version tags. Only enforced when 'allow_tag' is set."
+  type        = string
+  default     = "*"
+  validation {
+    condition     = length(var.tag_pattern) > 0
+    error_message = "tag_pattern must not be empty."
   }
 }
 

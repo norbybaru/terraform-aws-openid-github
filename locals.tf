@@ -48,7 +48,17 @@ locals {
     values   = ["repo:${var.repo}:pull_request"]
   }] : []
 
-  conditions = setunion(local.default_allow_main, local.default_allow_environment, local.default_allow_all, local.default_deny_pull_request, local.default_allow_pull_request, var.additional_conditions)
+  # Tag-triggered workflows (e.g. release pipelines on `on.push.tags`) present a
+  # sub of repo:<repo>:ref:refs/tags/<tag>, which no other preset matches.
+  # var.tag_pattern scopes which tags are trusted (default "*" = any tag; set
+  # "v*" to match conventional version tags).
+  default_allow_tag = contains(var.default_conditions, "allow_tag") ? [{
+    test     = "StringLike"
+    variable = local.github_sub
+    values   = ["repo:${var.repo}:ref:refs/tags/${var.tag_pattern}"]
+  }] : []
+
+  conditions = setunion(local.default_allow_main, local.default_allow_environment, local.default_allow_all, local.default_deny_pull_request, local.default_allow_pull_request, local.default_allow_tag, var.additional_conditions)
 
   # Merge conditions with the same test and variable into a single condition with combined values
   # This prevents duplicate condition blocks in the IAM policy trust document

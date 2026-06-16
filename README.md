@@ -115,6 +115,7 @@ Set `default_conditions` to control which workflows can assume the role. Default
 | Preset | Effect |
 |---|---|
 | `allow_main` | Allow workflows running on the `main` branch. |
+| `allow_tag` | Allow workflows triggered by a tag push, scoped by `tag_pattern` (default `*`; set `v*` for version tags). |
 | `allow_pull_request` | Allow pull requests from the main repository (not forks). |
 | `allow_environment` | Allow the GitHub Environments listed in `github_environments`. |
 | `deny_pull_request` | Deny any workflow triggered by a pull request. |
@@ -125,6 +126,20 @@ Notes:
 - `allow_pull_request` is suppressed automatically when `deny_pull_request` is also set.
 - Conditions sharing the same `test` + `variable` are merged into a single IAM condition with combined values.
 - Add custom claim checks with `additional_conditions`.
+
+### Release pipelines (tag-triggered workflows)
+
+A workflow that runs on a tag push presents an OIDC `sub` of `repo:<org>/<repo>:ref:refs/tags/<tag>`, which `allow_main` does not match. Add `allow_tag` and scope it with `tag_pattern`:
+
+```hcl
+module "gh_release" {
+  source = "github.com/norbybaru/terraform-aws-openid-github"
+  repo   = "<org>/<repo>"
+
+  default_conditions = ["allow_main", "allow_tag"]
+  tag_pattern        = "v*" # trust version tags (e.g. v1.2.3); omit for any tag
+}
+```
 
 > **Security:** Always grant the least access a workflow needs. See [SECURITY.md](SECURITY.md) for recommended configurations and the `allow_all` vulnerability.
 
@@ -157,7 +172,7 @@ Notes:
 | <a name="input_additional_conditions"></a> [additional\_conditions](#input\_additional\_conditions) | (Optional) Additional conditions for checking the OIDC claim. | <pre>list(object({<br>    test     = string<br>    variable = string<br>    values   = list(string)<br>  }))</pre> | `[]` | no |
 | <a name="input_client_id"></a> [client\_id](#input\_client\_id) | A list of client IDs (also known as audiences) | `list(string)` | <pre>[<br>  "sts.amazonaws.com"<br>]</pre> | no |
 | <a name="input_create_openid_provider"></a> [create\_openid\_provider](#input\_create\_openid\_provider) | Whether this module manages the GitHub Actions OIDC provider. The provider is account-unique per URL, so consumers sharing an account must create it once and set this to false elsewhere, supplying the existing ARN via openid\_connect\_provider\_arn. Prefer this explicit toggle over openid\_connect\_provider\_arn alone: count keys off this bool, so it stays plan-time-known even when the ARN is computed (known after apply). When null, the legacy behaviour applies: create unless openid\_connect\_provider\_arn is set. | `bool` | `null` | no |
-| <a name="input_default_conditions"></a> [default\_conditions](#input\_default\_conditions) | (Optional) Default conditions to apply, at least one of the following is mandatory: 'allow\_main', 'allow\_environment', 'allow\_pull\_request', 'allow\_all' and 'deny\_pull\_request'. | `list(string)` | <pre>[<br>  "allow_main",<br>  "deny_pull_request"<br>]</pre> | no |
+| <a name="input_default_conditions"></a> [default\_conditions](#input\_default\_conditions) | (Optional) Default conditions to apply, at least one of the following is mandatory: 'allow\_main', 'allow\_environment', 'allow\_pull\_request', 'allow\_tag', 'allow\_all' and 'deny\_pull\_request'. | `list(string)` | <pre>[<br>  "allow_main",<br>  "deny_pull_request"<br>]</pre> | no |
 | <a name="input_github_environments"></a> [github\_environments](#input\_github\_environments) | (Optional) List of GitHub environments allowed to assume the role. Only enforced when 'allow\_environment' is included in default_conditions. | `list(string)` | `[]` | no |
 | <a name="input_openid_connect_provider_arn"></a> [openid\_connect\_provider\_arn](#input\_openid\_connect\_provider\_arn) | Set the openid connect provider ARN when the provider is not managed by the module. | `string` | `null` | no |
 | <a name="input_provider_url"></a> [provider\_url](#input\_provider\_url) | The URL of the identity provider. Corresponds to the iss claim. | `string` | `"https://token.actions.githubusercontent.com"` | no |
@@ -166,6 +181,7 @@ Notes:
 | <a name="input_role_name"></a> [role\_name](#input\_role\_name) | (Optional) Name of the IAM role to create. If not provided, defaults to the repository name (from var.repo) with slashes replaced by hyphens and '-role' appended. | `string` | `null` | no |
 | <a name="input_role_path"></a> [role\_path](#input\_role\_path) | (Optional) Path for the IAM role. | `string` | `"/github-actions/"` | no |
 | <a name="input_role_permissions_boundary"></a> [role\_permissions\_boundary](#input\_role\_permissions\_boundary) | (Optional) ARN of the permissions boundary policy to attach to the IAM role. | `string` | `null` | no |
+| <a name="input_tag_pattern"></a> [tag\_pattern](#input\_tag\_pattern) | (Optional) Tag ref pattern trusted when 'allow\_tag' is in default\_conditions. Matched as StringLike against the OIDC sub, i.e. repo:<repo>:ref:refs/tags/<tag\_pattern>. Default '*' trusts any tag; set 'v*' to scope to conventional version tags. Only enforced when 'allow\_tag' is set. | `string` | `"*"` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Tags to attach onto resources | `map(string)` | `{}` | no |
 | <a name="input_thumb_prints"></a> [thumb\_prints](#input\_thumb\_prints) | A list of server certificate thumbprints for the OpenID Connect (OIDC) identity provider's server certificate(s) | `list(string)` | `[]` | no |
 
